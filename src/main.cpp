@@ -21,9 +21,12 @@
 #include "qpcpp.hpp"  // QP-C++ framework
 #include "dpp.hpp"    // DPP application
 #include "bsp.hpp"    // Board Support Package
+#include "net_task.hpp"
 
 using namespace QP;
-static constexpr unsigned stack_size = 1000;
+// static constexpr unsigned stack_size = 1000;
+static constexpr unsigned stack_size = 4096;
+
 
 Q_DEFINE_THIS_FILE
 
@@ -31,6 +34,8 @@ Q_DEFINE_THIS_FILE
 void setup() {
     QF::init(); // initialize the framework
     BSP::init(); // initialize the Board Support Package
+
+    // netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
 
     // init publish-subscribe
     static QSubscrList subscrSto[MAX_PUB_SIG];

@@ -21,6 +21,8 @@
 #include "bsp.hpp"     // Board Support Package
 #include <Arduino.h>
 #include "esp_freertos_hooks.h"
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 #ifndef LED_BUILTIN  //If current ESP32 board does not define LED_BUILTIN
 static constexpr unsigned LED_BUILTIN=13U;
@@ -44,9 +46,11 @@ static QP::QSpyId const l_TIMER_ID = { 0U }; // QSpy source ID
 //----------------------------------------------------------------------------
 // BSP functions
 
-static void tickHook_ESP32(void); /*Tick hook for QP */
+// static void IRAM_ATTR tickHook_ESP32(void); /*Tick hook for QP */
 
-static void tickHook_ESP32(void)
+
+
+static void IRAM_ATTR tickHook_ESP32(void)
 {
     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
     /* process time events for rate 0 */
@@ -55,6 +59,7 @@ static void tickHook_ESP32(void)
     if(xHigherPriorityTaskWoken) {
         portYIELD_FROM_ISR();
     }
+    /*
 #ifndef QS_ON
     if (Serial.available() > 0) {
         switch (Serial.read()) { // read the incoming byte
@@ -71,6 +76,7 @@ static void tickHook_ESP32(void)
         }
     }
 #endif
+*/
 }
 
 void BSP::init(void) {
@@ -242,3 +248,19 @@ void QP::QS::onFlush(void) {
 void QP::QS::onReset(void) {
     esp_restart();
 }
+
+
+
+
+namespace QP {
+namespace QF {
+
+void onIdle() {
+    // Yield so FreeRTOS/WiFi housekeeping can run and WDT stays happy
+    Serial.println("onIdle() called");
+    vTaskDelay(1);
+}
+
+} // namespace QF
+} // namespace QP
+
