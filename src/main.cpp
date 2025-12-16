@@ -23,6 +23,141 @@
 #include "bsp.hpp"    // Board Support Package
 #include "net_task.hpp"
 
+extern "C" {
+  #include "driver/gpio.h"
+  #include "esp_freertos_hooks.h"   // esp_register_freertos_idle_hook_for_cpu()
+}
+
+#include <Arduino.h>
+
+extern "C" {
+  #include "freertos/FreeRTOS.h"
+  #include "freertos/task.h"
+}
+
+static const char* taskStateToStr(eTaskState s) {
+  switch (s) {
+    case eRunning:   return "RUN";
+    case eReady:     return "RDY";
+    case eBlocked:   return "BLK";
+    case eSuspended: return "SUS";
+    case eDeleted:   return "DEL";
+    default:         return "UNK";
+  }
+}
+
+void printRtosTasks() {
+  UBaseType_t n = uxTaskGetNumberOfTasks();
+  if (n == 0) {
+    Serial.println("No tasks??");
+    return;
+  }
+
+  // Allocate array for task snapshots
+  TaskStatus_t *st = (TaskStatus_t*)malloc(n * sizeof(TaskStatus_t));
+  if (!st) {
+    Serial.println("malloc failed");
+    return;
+  }
+
+  uint32_t totalRunTime = 0;
+  UBaseType_t got = uxTaskGetSystemState(st, n, &totalRunTime);
+  if (got == 0) {
+    Serial.println("uxTaskGetSystemState returned 0 (trace/stats may be disabled)");
+    free(st);
+    return;
+  }
+
+  Serial.println();
+  Serial.println("Name                         Prio State StackHW Core   Runtime%");
+  Serial.println("------------------------------------------------------------------");
+
+  for (UBaseType_t i = 0; i < got; ++i) {
+    const char* name = st[i].pcTaskName ? st[i].pcTaskName : "?";
+    UBaseType_t prio = st[i].uxCurrentPriority;
+    const char* state = taskStateToStr(st[i].eCurrentState);
+    uint32_t stackHW = st[i].usStackHighWaterMark; // in words
+
+    // ESP32 FreeRTOS adds xCoreID to TaskStatus_t
+    int core = -1;
+    #if defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_ESP32)
+      core = (int)st[i].xCoreID; // 0, 1, or tskNO_AFFINITY
+    #endif
+
+    float pct = 0.0f;
+    if (totalRunTime > 0) {
+      pct = (100.0f * (float)st[i].ulRunTimeCounter) / (float)totalRunTime;
+    }
+
+    char coreStr[8];
+    if (core == (int)tskNO_AFFINITY) {
+      strncpy(coreStr, "ANY", sizeof(coreStr));
+    } else if (core == 0 || core == 1) {
+      snprintf(coreStr, sizeof(coreStr), "%d", core);
+    } else {
+      strncpy(coreStr, "?", sizeof(coreStr));
+    }
+
+    Serial.printf("%-28s %4u  %-4s %7lu %4s   %7.2f\n",
+                  name, (unsigned)prio, state, (unsigned long)stackHW, coreStr, pct);
+  }
+
+  Serial.println("------------------------------------------------------------------");
+  Serial.printf("Tasks reported: %u (allocated %u)\n", (unsigned)got, (unsigned)n);
+
+  free(st);
+}
+
+static void rtosDumpTask(void *arg) {
+  vTaskDelay(pdMS_TO_TICKS(3000));   // let the system settle
+
+  for (;;) {
+    printRtosTasks();
+    vTaskDelay(pdMS_TO_TICKS(5000)); // periodic dump
+  }
+}
+
+
+static constexpr gpio_num_t PROBE_GPIO_0 = GPIO_NUM_25; // pick a safe pin for your board
+static constexpr gpio_num_t PROBE_GPIO_1 = GPIO_NUM_33;
+
+static constexpr gpio_num_t PROBE_GPIO_QF = GPIO_NUM_32;
+
+static bool IRAM_ATTR idle_hook_core0() {
+  static int level_0 = 0;
+  static int n0 = 0;
+  if (++n0 >= 10) {
+    n0 = 0;
+    level_0 ^= 1;
+    gpio_set_level(PROBE_GPIO_0, level_0);
+  }
+  return true;
+}
+
+static bool IRAM_ATTR idle_hook_core1() {
+  static int level_1 = 0;
+  static int n1 = 0;
+  if (++n1 >= 10) {
+    n1 = 0;
+    level_1 ^= 1;
+    gpio_set_level(PROBE_GPIO_1, level_1);
+  }
+  
+  return true;
+}
+
+void printQpPinning() {
+#if defined(CONFIG_QP_PINNED_TO_CORE_0)
+  Serial.println("CONFIG_QP_PINNED_TO_CORE_0 is defined");
+#elif defined(CONFIG_QP_PINNED_TO_CORE_1)
+  Serial.println("CONFIG_QP_PINNED_TO_CORE_1 is defined");
+#else
+  Serial.println("No CONFIG_QP_PINNED_TO_CORE_* defined (default core 1)");
+#endif
+}
+
+
+
 using namespace QP;
 // static constexpr unsigned stack_size = 1000;
 static constexpr unsigned stack_size = 4096;
@@ -32,6 +167,50 @@ Q_DEFINE_THIS_FILE
 
 //............................................................................
 void setup() {
+
+    Serial.begin(115200);
+    while (!Serial) {}
+
+    // check CPU pinning
+    printQpPinning();
+// Configure the probe pin for CPU0
+  gpio_config_t io_conf0{};
+  io_conf0.intr_type = GPIO_INTR_DISABLE;
+  io_conf0.mode = GPIO_MODE_OUTPUT;
+  io_conf0.pin_bit_mask = 1ULL << PROBE_GPIO_0;
+  io_conf0.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf0.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_config(&io_conf0);
+  gpio_set_level(PROBE_GPIO_0, 1);
+
+  // Configure the probe pin for CPU1
+  gpio_config_t io_conf1{};
+  io_conf1.intr_type = GPIO_INTR_DISABLE;
+  io_conf1.mode = GPIO_MODE_OUTPUT;
+  io_conf1.pin_bit_mask = 1ULL << PROBE_GPIO_1;
+  io_conf1.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf1.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_config(&io_conf1);
+  gpio_set_level(PROBE_GPIO_1, 1);
+
+  // Configure the probe pin for QP scheduling
+  gpio_config_t io_conf2{};
+  io_conf2.intr_type = GPIO_INTR_DISABLE;
+  io_conf2.mode = GPIO_MODE_OUTPUT;
+  io_conf2.pin_bit_mask = 1ULL << PROBE_GPIO_QF;
+  io_conf2.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  io_conf2.pull_up_en = GPIO_PULLUP_DISABLE;
+  gpio_config(&io_conf2);
+  gpio_set_level(PROBE_GPIO_QF, 0);
+
+  // Register idle hook for both CPUs
+  // cpu_id: 0 => core 0, 1 => core 1
+  esp_err_t e0 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core0, 0);
+  esp_err_t e1 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core1, 1);
+
+Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
+
+
     QF::init(); // initialize the framework
     BSP::init(); // initialize the Board Support Package
 
@@ -48,21 +227,53 @@ void setup() {
 
     // start all active objects...
 
+    static char philoNames[N_PHILO][12];
+
     // start Philos
     static QP::QEvt const *philoQueueSto[10][N_PHILO];
     for (uint8_t n = 0U; n < N_PHILO; ++n) {
+        snprintf(philoNames[n], sizeof(philoNames[n]), "AO_Philo%u", n);
+        AO_Philo[n]->setAttr(TASK_NAME_ATTR, philoNames[n]);
         AO_Philo[n]->start((uint_fast8_t)(n + 1U), // priority
             philoQueueSto[n], Q_DIM(philoQueueSto[n]),
             (void *)0, stack_size);
     }
     // start Table
+    AO_Table->setAttr(TASK_NAME_ATTR, "AO_Table");
     static QP::QEvt const *tableQueueSto[N_PHILO];
     AO_Table->start((uint_fast8_t)(N_PHILO + 1U), // priority
         tableQueueSto, Q_DIM(tableQueueSto),
         (void *)0, stack_size);
-    QF::run(); // run the QF/C++ framework
+    Serial.printf("Before QF::run() core=%d\n", xPortGetCoreID());
+
+    // Start RTOS dump task pinned to core 0 (PRO CPU)
+  constexpr BaseType_t CORE0 = 0;
+  xTaskCreatePinnedToCore(
+      rtosDumpTask,
+      "rtosDump",
+      4096,          // stack bytes
+      nullptr,
+      1,             // low priority
+      nullptr,
+      CORE0
+  );
+
+
+    QF::run();
+    Serial.printf("AFTER QF::run() core=%d\n", xPortGetCoreID()); // should never print
+Serial.printf("Tasks now: %u\n", (unsigned)uxTaskGetNumberOfTasks());
+printRtosTasks();
+
 }
 
 //............................................................................
 void loop() {
+  // static bool done = false;
+  // if (!done && millis() > 3000) {     // wait 3s after boot
+  //  printRtosTasks();
+  //  done = true;
+  //}
+  vTaskDelay(portMAX_DELAY);  // choose this
+  // delay(1)                 // or this
 }
+
