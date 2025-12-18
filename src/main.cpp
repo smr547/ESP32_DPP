@@ -22,6 +22,7 @@
 #include "dpp.hpp"    // DPP application
 #include "bsp.hpp"    // Board Support Package
 #include "net_task.hpp"
+#include "HealthAO.hpp"
 
 extern "C" {
   #include "driver/gpio.h"
@@ -214,7 +215,7 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     QF::init(); // initialize the framework
     BSP::init(); // initialize the Board Support Package
 
-    // netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
+
 
     // init publish-subscribe
     static QSubscrList subscrSto[MAX_PUB_SIG];
@@ -226,6 +227,22 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
                  sizeof(smlPoolSto), sizeof(smlPoolSto[0]));
 
     // start all active objects...
+
+    static HealthAO l_health;
+    l_health.setAttr(TASK_NAME_ATTR, "AO_Health");
+    static QP::QEvt const *healthQueueSto[10];
+    Serial.printf("AO_Health object @ %p\n", (void*)&l_health);
+    l_health.start(/*prio*/ (uint_fast8_t)(N_PHILO + 2U),
+               healthQueueSto, Q_DIM(healthQueueSto),
+               (void*)0, stack_size);
+
+    // post a HEALTH_START_SIG event to the Health AO
+    static QP::QEvt const healthStartEvt = { HEALTH_START_SIG, 0U, 0U };
+    // post with margin + sender
+    l_health.post_(&healthStartEvt, 0U, nullptr);
+    // or if QF_NO_MARGIN isn't visible: l_health.post_(&healthStartEvt, 0U, nullptr);
+
+
 
     static char philoNames[N_PHILO][12];
 
@@ -256,7 +273,12 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
       1,             // low priority
       nullptr,
       CORE0
-  );
+  );    
+
+    
+
+    // Serial.println("Initiating the web server task");
+    //  netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
 
 
     QF::run();

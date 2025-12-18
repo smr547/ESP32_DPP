@@ -20,23 +20,25 @@
 #define DPP_HPP
 
 enum Signals {
-    EAT_SIG = QP::Q_USER_SIG, // published by Table to let a Philosopher eat
-    DONE_SIG,       // published by Philosopher when done eating
-    PAUSE_SIG,      // published by BSP to pause the application
-    SERVE_SIG,      // published by BSP to serve re-start serving forks
-    TEST_SIG,       // published by BSP to test the application
-    MAX_PUB_SIG,    // the last published signal
+    EAT_SIG = QP::Q_USER_SIG,  // published by Table to let a Philosopher eat
+    DONE_SIG,                  // published by Philosopher when done eating
+    PAUSE_SIG,                 // published by BSP to pause the application
+    SERVE_SIG,    // published by BSP to serve re-start serving forks
+    TEST_SIG,     // published by BSP to test the application
+    MAX_PUB_SIG,  // the last published signal
 
-    TIMEOUT_SIG,    // timeout used by Time Events
-    HUNGRY_SIG,     // posted direclty to Table from hungry Philo
-    MAX_SIG         // the last signal
+    TIMEOUT_SIG,  // timeout used by Time Events
+    HUNGRY_SIG,   // posted direclty to Table from hungry Philo
+    HEALTH_START_SIG,
+    HEALTH_TICK_SIG,
+    MAX_SIG  // the last signal
 };
 
 // generate declarations all event classes
 //.$declare${Events} vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 //.${Events::TableEvt} .......................................................
 class TableEvt : public QP::QEvt {
-public:
+   public:
     uint8_t philoNum;
 };
 //.$enddecl${Events} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -46,10 +48,10 @@ enum { N_PHILO = 5 };
 
 // generate declarations of all opaque pointers...
 //.$declare${AOs::AO_Philo[N_PHILO]} vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-extern QP::QActive * const AO_Philo[N_PHILO];
+extern QP::QActive* const AO_Philo[N_PHILO];
 //.$enddecl${AOs::AO_Philo[N_PHILO]} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 //.$declare${AOs::AO_Table} vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-extern QP::QActive * const AO_Table;
+extern QP::QActive* const AO_Table;
 //.$enddecl${AOs::AO_Table} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-#endif // DPP_HPP
+#endif  // DPP_HPP
