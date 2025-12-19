@@ -234,7 +234,7 @@ namespace QF {
 
 void onIdle() {
     // Yield so FreeRTOS/WiFi housekeeping can run and WDT stays happy
-    Serial.println("onIdle() called");
+    // Serial.println("onIdle() called");
     vTaskDelay(1);
 }
 
