@@ -46,41 +46,37 @@ QP::QState HealthAO::initial(HealthAO* const me, QP::QEvt const* const) {
 
 QP::QState HealthAO::active(HealthAO* const me, QP::QEvt const* const e) {
     switch (e->sig) {
+        case HEALTH_START_SIG: {
+            // TaskHandle_t cur = xTaskGetCurrentTaskHandle();
+            Serial.printf("HEALTH_START handled in %s core=%d\n",
+                          pcTaskGetName(xTaskGetCurrentTaskHandle()),
+                          xPortGetCoreID());
 
-    case HEALTH_START_SIG: {
-        // TaskHandle_t cur = xTaskGetCurrentTaskHandle();
-        Serial.printf("HEALTH_START handled in %s core=%d\n",
-              pcTaskGetName(xTaskGetCurrentTaskHandle()),
-              xPortGetCoreID());
+            esp_err_t r = esp_task_wdt_add(nullptr);  // add CURRENT task
+            if (r != ESP_OK) {
+                Serial.printf("WDT add failed: %d\n", (int)r);
+                return Q_HANDLED();
+            }
+            Serial.println("WDT add OK (Health AO task)");
 
-        esp_err_t r = esp_task_wdt_add(nullptr);   // add CURRENT task
-        if (r != ESP_OK) {
-            Serial.printf("WDT add failed: %d\n", (int)r);
+            // Arm periodic feed (safe starter until you confirm QP tick rate)
+            me->m_tickEvt.armX(FEED_PERIOD_TICKS, FEED_PERIOD_TICKS);
+
             return Q_HANDLED();
         }
-        Serial.println("WDT add OK (Health AO task)");
 
-        // Arm periodic feed (safe starter until you confirm QP tick rate)
-        static constexpr QP::QTimeEvtCtr FEED_PERIOD_TICKS = 100U;
-        me->m_tickEvt.armX(FEED_PERIOD_TICKS, FEED_PERIOD_TICKS);
-
-        return Q_HANDLED();
-    }
-
-    case HEALTH_TICK_SIG: {
-
-        gpio_set_level(WDT_PULSE_GPIO, 1);
-        esp_err_t r = esp_task_wdt_reset();  
-        gpio_set_level(WDT_PULSE_GPIO, 0);      // reset CURRENT task
-        if (r != ESP_OK) {
-            TaskHandle_t cur = xTaskGetCurrentTaskHandle();
-            Serial.printf("WDT reset failed: %d (task=%p %s core=%d)\n",
-                          (int)r, (void*)cur, pcTaskGetName(cur), xPortGetCoreID());
+        case HEALTH_TICK_SIG: {
+            gpio_set_level(WDT_PULSE_GPIO, 1);
+            esp_err_t r = esp_task_wdt_reset();
+            gpio_set_level(WDT_PULSE_GPIO, 0);  // reset CURRENT task
+            if (r != ESP_OK) {
+                TaskHandle_t cur = xTaskGetCurrentTaskHandle();
+                Serial.printf("WDT reset failed: %d (task=%p %s core=%d)\n",
+                              (int)r, (void*)cur, pcTaskGetName(cur),
+                              xPortGetCoreID());
+            }
+            return Q_HANDLED();
         }
-        return Q_HANDLED();
-    }
-
     }
     return Q_SUPER(&QP::QHsm::top);
 }
-

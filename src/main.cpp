@@ -264,6 +264,8 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     Serial.printf("Before QF::run() core=%d\n", xPortGetCoreID());
 
     // Start RTOS dump task pinned to core 0 (PRO CPU)
+
+    /*
   constexpr BaseType_t CORE0 = 0;
   xTaskCreatePinnedToCore(
       rtosDumpTask,
@@ -274,28 +276,21 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
       nullptr,
       CORE0
   );    
+  */
 
     
 
     // Serial.println("Initiating the web server task");
-    //  netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
+    // netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
 
 
     QF::run();
     Serial.printf("AFTER QF::run() core=%d\n", xPortGetCoreID()); // should never print
-Serial.printf("Tasks now: %u\n", (unsigned)uxTaskGetNumberOfTasks());
-printRtosTasks();
 
 }
 
 //............................................................................
 void loop() {
-  // static bool done = false;
-  // if (!done && millis() > 3000) {     // wait 3s after boot
-  //  printRtosTasks();
-  //  done = true;
-  //}
   vTaskDelay(portMAX_DELAY);  // choose this
-  // delay(1)                 // or this
 }
 
