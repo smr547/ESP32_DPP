@@ -29,8 +29,6 @@ extern "C" {
   #include "esp_freertos_hooks.h"   // esp_register_freertos_idle_hook_for_cpu()
 }
 
-#include <Arduino.h>
-
 extern "C" {
   #include "freertos/FreeRTOS.h"
   #include "freertos/task.h"
@@ -47,6 +45,7 @@ static const char* taskStateToStr(eTaskState s) {
   }
 }
 
+// print the status of each FreeRTOS task
 void printRtosTasks() {
   UBaseType_t n = uxTaskGetNumberOfTasks();
   if (n == 0) {
@@ -109,6 +108,7 @@ void printRtosTasks() {
   free(st);
 }
 
+// a FreeRTOS task to print the status of each task
 static void rtosDumpTask(void *arg) {
   vTaskDelay(pdMS_TO_TICKS(3000));   // let the system settle
 
@@ -124,6 +124,7 @@ static constexpr gpio_num_t PROBE_GPIO_1 = GPIO_NUM_33;
 
 static constexpr gpio_num_t PROBE_GPIO_QF = GPIO_NUM_32;
 
+// toggle the probe pin for core 0
 static bool IRAM_ATTR idle_hook_core0() {
   static int level_0 = 0;
   static int n0 = 0;
@@ -135,6 +136,7 @@ static bool IRAM_ATTR idle_hook_core0() {
   return true;
 }
 
+// toggle the probe pin for core 0
 static bool IRAM_ATTR idle_hook_core1() {
   static int level_1 = 0;
   static int n1 = 0;
@@ -147,6 +149,8 @@ static bool IRAM_ATTR idle_hook_core1() {
   return true;
 }
 
+// report on how the QP framework has been configured to run on one CPU
+// or on both
 void printQpPinning() {
 #if defined(CONFIG_QP_PINNED_TO_CORE_0)
   Serial.println("CONFIG_QP_PINNED_TO_CORE_0 is defined");
@@ -206,28 +210,32 @@ void setup() {
 
   // Register idle hook for both CPUs
   // cpu_id: 0 => core 0, 1 => core 1
+  // The idle hook simply toggle a GPIO "probe pin" so that system health
+  // can be monitored with an oscilloscope or logic analyser
+  //
   esp_err_t e0 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core0, 0);
   esp_err_t e1 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core1, 1);
 
 Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
 
 
-    QF::init(); // initialize the framework
-    BSP::init(); // initialize the Board Support Package
+    QF::init(); // initialize the framework -- DPP code
+    BSP::init(); // initialize the Board Support Package -- DPP code
 
 
 
-    // init publish-subscribe
+    // init publish-subscribe -- DPP code
     static QSubscrList subscrSto[MAX_PUB_SIG];
     QF::psInit(subscrSto, Q_DIM(subscrSto));
 
-    // initialize event pools...
+    // initialize event pools... -- DPP code
     static QF_MPOOL_EL(TableEvt) smlPoolSto[2*N_PHILO];
     QF::poolInit(smlPoolSto,
                  sizeof(smlPoolSto), sizeof(smlPoolSto[0]));
 
     // start all active objects...
 
+    // the Health AO is responsible for feeding the Tast Watchdog timer
     static HealthAO l_health;
     l_health.setAttr(TASK_NAME_ATTR, "AO_Health");
     static QP::QEvt const *healthQueueSto[10];
@@ -246,7 +254,7 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
 
     static char philoNames[N_PHILO][12];
 
-    // start Philos
+    // start Philos -- DPP code
     static QP::QEvt const *philoQueueSto[10][N_PHILO];
     for (uint8_t n = 0U; n < N_PHILO; ++n) {
         snprintf(philoNames[n], sizeof(philoNames[n]), "AO_Philo%u", n);
@@ -255,7 +263,7 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
             philoQueueSto[n], Q_DIM(philoQueueSto[n]),
             (void *)0, stack_size);
     }
-    // start Table
+    // start Table -- DPP code
     AO_Table->setAttr(TASK_NAME_ATTR, "AO_Table");
     static QP::QEvt const *tableQueueSto[N_PHILO];
     AO_Table->start((uint_fast8_t)(N_PHILO + 1U), // priority
@@ -264,6 +272,8 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     Serial.printf("Before QF::run() core=%d\n", xPortGetCoreID());
 
     // Start RTOS dump task pinned to core 0 (PRO CPU)
+    // This task will periodically print the status of FreeRTOS tasks
+    // to the Serial port
 
     
   constexpr BaseType_t CORE0 = 0;
@@ -278,20 +288,32 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
   );    
   
 
-    
+    // Start the Telnet server task 
 
     // Serial.println("Initiating the web server task");
-    //netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
-    netTask_start("StevenR", "ILoveIrene", 23); // <-- start core-0 server
+    netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
+    //netTask_start("StevenR", "ILoveIrene", 23); // <-- start core-0 server
 
 
     QF::run();
     Serial.printf("AFTER QF::run() core=%d\n", xPortGetCoreID()); // should never print
+								  // but it actually does!!
+								  // QF::run() actually return
+
+    // In the vChavezB/qpcpp_esp32 port, QF::run():
+    // -  creates a FreeRTOS task for each AO
+    // -  executes the initial() state transition for each AO (in the context of loopTask
+    // -  returns control to this point 
 
 }
 
 //............................................................................
 void loop() {
+
+  // because QF::run() is returning control, loopTask continues to execute.
+  // To avoid a blocking infinite loop, the loop() function must yeield to the 
+  // FreeRTOS scheduler via the vTaskDelay(portMAX_DELAY) call
+  //
   vTaskDelay(portMAX_DELAY);  // choose this
 }
 
