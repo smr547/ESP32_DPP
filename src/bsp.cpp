@@ -30,6 +30,7 @@ static constexpr unsigned LED_BUILTIN = 13U;
 
 using namespace QP;
 static uint8_t const l_TickHook = static_cast<uint8_t>(0);
+/*
 static TaskHandle_t s_qpTickTask = nullptr;
 
 static void QpTickTask(void *) {
@@ -38,6 +39,7 @@ static void QpTickTask(void *) {
     QP::QTimeEvt::TICK_X(0U, &l_TickHook);     // run QP time events in task context
   }
 }
+*/
 
 //............................................................................
 // QS facilities
@@ -55,12 +57,13 @@ static QP::QSpyId const l_TIMER_ID = {0U};  // QSpy source ID
 // BSP functions
 
 // static void IRAM_ATTR tickHook_ESP32(void); /*Tick hook for QP */
-
+/*
 static void IRAM_ATTR tickHook_ESP32(void) {
   BaseType_t hpw = pdFALSE;
   vTaskNotifyGiveFromISR(s_qpTickTask, &hpw);
   if (hpw) portYIELD_FROM_ISR();
 }
+*/
 
 
 void BSP::init(void) {
@@ -153,13 +156,8 @@ void QSpy_Task(void*) {
 
 
 void QF::onStartup(void) {
-    xTaskCreatePinnedToCore(
-        QpTickTask, "QpTick", 4096, nullptr,
-        configMAX_PRIORITIES - 2,   // high, but below absolute top
-        &s_qpTickTask, QP_CPU_NUM);
-
-
-    esp_register_freertos_tick_hook_for_cpu(tickHook_ESP32, QP_CPU_NUM);
+    
+    QP::ESP32_tickHookInit();
     QS_OBJ_DICTIONARY(&l_TickHook);
 #ifdef QS_ON
     xTaskCreatePinnedToCore(QSpy_Task, /* Function to implement the task */
