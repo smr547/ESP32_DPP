@@ -29,10 +29,18 @@ extern "C" {
   #include "esp_freertos_hooks.h"   // esp_register_freertos_idle_hook_for_cpu()
 }
 
+#include <Arduino.h>
 extern "C" {
   #include "freertos/FreeRTOS.h"
   #include "freertos/task.h"
 }
+
+#if defined(CONFIG_QP_PINNED_TO_CORE_0)
+#warning "APP sees CONFIG_QP_PINNED_TO_CORE_0"
+#endif
+#if defined(CONFIG_QP_PINNED_TO_CORE_1)
+#warning "APP sees CONFIG_QP_PINNED_TO_CORE_1"
+#endif
 
 static const char* taskStateToStr(eTaskState s) {
   switch (s) {

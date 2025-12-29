@@ -16,15 +16,14 @@
 // for more details.
 //
 //.$endhead${.::bsp.cpp} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#include "bsp.hpp"  // Board Support Package
-
+#include "qpcpp.hpp"   // QP-C++ framework
+#include "dpp.hpp"     // DPP application
+#include "bsp.hpp"     // Board Support Package
 #include <Arduino.h>
+#include "esp_freertos_hooks.h"
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
-#include "dpp.hpp"  // DPP application
-#include "esp_freertos_hooks.h"
-#include "qpcpp.hpp"  // QP-C++ framework
 
 #ifndef LED_BUILTIN  // If current ESP32 board does not define LED_BUILTIN
 static constexpr unsigned LED_BUILTIN = 13U;
