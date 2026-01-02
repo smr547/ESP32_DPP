@@ -28,22 +28,13 @@ extern "C" {
 #include "dpp.hpp"  // DPP application
 #include "esp_freertos_hooks.h"
 #include "qpcpp.hpp"  // QP-C++ framework
+#include "bsp_hooks.hpp"
 
 #ifndef LED_BUILTIN  // If current ESP32 board does not define LED_BUILTIN
 static constexpr unsigned LED_BUILTIN = 13U;
 #endif
 
 using namespace QP;
-static uint8_t const l_TickHook = static_cast<uint8_t>(0);
-static TaskHandle_t s_qpTickTask = nullptr;
-
-static void QpTickTask(void*) {
-    for (;;) {
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);  // wait for tick notifications
-        QP::QTimeEvt::TICK_X(
-            0U, &l_TickHook);  // run QP time events in task context
-    }
-}
 
 //............................................................................
 // QS facilities
@@ -59,14 +50,6 @@ static QP::QSpyId const l_TIMER_ID = {0U};  // QSpy source ID
 
 //----------------------------------------------------------------------------
 // BSP functions
-
-// static void IRAM_ATTR tickHook_ESP32(void); /*Tick hook for QP */
-
-static void IRAM_ATTR tickHook_ESP32(void) {
-    BaseType_t hpw = pdFALSE;
-    vTaskNotifyGiveFromISR(s_qpTickTask, &hpw);
-    if (hpw) portYIELD_FROM_ISR();
-}
 
 void BSP::init(void) {
     // initialize the hardware used in this sketch...
@@ -154,24 +137,9 @@ void QSpy_Task(void*) {
     };
 }
 
-void QF::onStartup(void) {
-    xTaskCreatePinnedToCore(
-        QpTickTask, "QpTick", 4096, nullptr,
-        configMAX_PRIORITIES - 2,  // high, but below absolute top
-        &s_qpTickTask, QP_CPU_NUM);
-
-    esp_register_freertos_tick_hook_for_cpu(tickHook_ESP32, QP_CPU_NUM);
-    QS_OBJ_DICTIONARY(&l_TickHook);
-#ifdef QS_ON
-    xTaskCreatePinnedToCore(QSpy_Task, /* Function to implement the task */
-                            "QSPY",    /* Name of the task */
-                            10000,     /* Stack size in words */
-                            NULL,      /* Task input parameter */
-                            configMAX_PRIORITIES - 3, /* Priority of the task */
-                            NULL,                     /* Task handle. */
-                            QP_CPU_NUM); /* Core where the task should run */
-#endif
-}
+ void QF::onStartup(void) {
+    BSPHooks::onStartup();
+ }
 
 //............................................................................
 
