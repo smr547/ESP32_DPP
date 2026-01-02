@@ -16,12 +16,15 @@
 // for more details.
 //
 //.$endhead${.::bsp.cpp} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-#include "bsp.hpp"  // Board Support Package
 
 #include <Arduino.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
 
+extern "C" {
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+}
+
+#include "bsp.hpp"  // Board Support Package (include once)
 #include "dpp.hpp"  // DPP application
 #include "esp_freertos_hooks.h"
 #include "qpcpp.hpp"  // QP-C++ framework

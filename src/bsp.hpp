@@ -18,17 +18,23 @@
 //.$endhead${.::bsp.hpp} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #ifndef BSP_HPP
 #define BSP_HPP
+#include "qpcpp.hpp"  // QP-C++ framework
+
+extern "C" {
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+}
 
 class BSP {
-public:
-    enum { TICKS_PER_SEC = CONFIG_FREERTOS_HZ} ;
+   public:
+    enum { TICKS_PER_SEC = configTICK_RATE_HZ };
     static void init(void);
     static void displayPaused(uint8_t const paused);
-    static void displayPhilStat(uint8_t const n, char_t const *stat);
+    static void displayPhilStat(uint8_t const n, char_t const* stat);
     static void terminate(int16_t const result);
 
-    static void randomSeed(uint32_t const seed); // random seed
-    static uint32_t random(void);                // pseudo-random generator
+    static void randomSeed(uint32_t const seed);  // random seed
+    static uint32_t random(void);                 // pseudo-random generator
     static QP::QTimeEvtCtr think_rnd_time();
     static QP::QTimeEvtCtr eat_rnd_time();
 
@@ -36,4 +42,4 @@ public:
     static void ledOn(void);
 };
 
-#endif // BSP_HPP
+#endif  // BSP_HPP

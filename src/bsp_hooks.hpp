@@ -4,7 +4,6 @@
 namespace BSPHooks {
   void onInit();       // serial, pins, etc
   void onStartup();    // tick init, any extra tasks
-  void startQSpy();
   void onIdle();       // optional
 }
 
