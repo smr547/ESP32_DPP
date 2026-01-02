@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<model version="5.1.1" links="1">
+<model version="7.0.2" links="1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.state-machine.com/qm/qm7.xsd">
  <documentation>This is the Dining Philosopher Problem (DPP) example for the Arduino-ESP32 board. The example demonstrates:
 
 1. Multiple active objects (5 Philosophers and 1 Table AO)
@@ -109,8 +109,8 @@ Q_ASSERT(Q_EVT_CAST(TableEvt)-&gt;philoNum != PHILO_ID(this));</action>
       </tran_glyph>
      </tran>
      <state_glyph node="2,5,17,16">
-      <entry box="1,2,5,2"/>
-      <exit box="1,4,5,2"/>
+      <entry box="0,3,5,2"/>
+      <exit box="0,5,5,2"/>
      </state_glyph>
     </state>
     <!--${AOs::Philo::SM::hungry}-->
@@ -140,7 +140,7 @@ Q_ASSERT(Q_EVT_CAST(TableEvt)-&gt;philoNum != PHILO_ID(this));</action>
       </tran_glyph>
      </tran>
      <state_glyph node="2,23,17,16">
-      <entry box="1,2,5,2"/>
+      <entry box="0,3,5,2"/>
      </state_glyph>
     </state>
     <!--${AOs::Philo::SM::eating}-->
@@ -165,8 +165,8 @@ Q_ASSERT(Q_EVT_CAST(TableEvt)-&gt;philoNum != PHILO_ID(this));</action>
       </tran_glyph>
      </tran>
      <state_glyph node="2,41,17,18">
-      <entry box="1,2,5,2"/>
-      <exit box="1,4,5,2"/>
+      <entry box="0,3,5,2"/>
+      <exit box="0,5,5,2"/>
      </state_glyph>
     </state>
     <state_diagram size="36,61"/>
@@ -338,7 +338,7 @@ if (m_isHungry[m] &amp;&amp; (m_fork[n] == FREE)) {
        </tran_glyph>
       </tran>
       <state_glyph node="4,19,34,24">
-       <entry box="1,2,27,2"/>
+       <entry box="0,3,27,2"/>
       </state_glyph>
      </state>
      <!--${AOs::Table::SM::active::paused}-->
@@ -380,8 +380,8 @@ m_fork[n] = FREE;</action>
        </tran_glyph>
       </tran>
       <state_glyph node="4,45,34,20">
-       <entry box="1,2,18,4"/>
-       <exit box="1,6,18,4"/>
+       <entry box="0,3,18,4"/>
+       <exit box="0,7,18,4"/>
       </state_glyph>
      </state>
      <state_glyph node="2,5,44,62"/>
@@ -485,6 +485,9 @@ public:
 #include &quot;bsp.hpp&quot;     // Board Support Package
 #include &lt;Arduino.h&gt;
 #include &quot;esp_freertos_hooks.h&quot;
+#include &lt;freertos/FreeRTOS.h&gt;
+#include &lt;freertos/task.h&gt;
+#include &quot;bsp_hooks.hpp&quot;
 
 #ifndef LED_BUILTIN  //If current ESP32 board does not define LED_BUILTIN
 static constexpr unsigned LED_BUILTIN=13U; 
@@ -507,34 +510,34 @@ static QP::QSpyId const l_TIMER_ID = { 0U }; // QSpy source ID
 //----------------------------------------------------------------------------
 // BSP functions
 
-static void tickHook_ESP32(void); /*Tick hook for QP */
+//static void tickHook_ESP32(void); /*Tick hook for QP */
 
-static void tickHook_ESP32(void)
-{
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    /* process time events for rate 0 */
-    QF::TICK_FROM_ISR(&amp;xHigherPriorityTaskWoken, &amp;l_TIMER_ID);
-    /* notify FreeRTOS to perform context switch from ISR, if needed */
-    if(xHigherPriorityTaskWoken) {
-        portYIELD_FROM_ISR();
-    }
-#ifndef QS_ON
-    if (Serial.available() &gt; 0) {
-        switch (Serial.read()) { // read the incoming byte
-            case 'p':
-            case 'P':
-                static QEvt const pauseEvt = { PAUSE_SIG, 0U, 0U};
-                QF::PUBLISH(&amp;pauseEvt, &amp;l_TIMER_ID);
-                break;
-            case 's':
-            case 'S':
-                static QEvt const serveEvt = { SERVE_SIG, 0U, 0U};
-                QF::PUBLISH(&amp;serveEvt, &amp;l_TIMER_ID);
-                break;
-        }
-    }
-#endif
-}
+//static void tickHook_ESP32(void)
+//{
+//    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//    /* process time events for rate 0 */
+//    QF::TICK_FROM_ISR(&amp;xHigherPriorityTaskWoken, &amp;l_TIMER_ID);
+//    /* notify FreeRTOS to perform context switch from ISR, if needed */
+//    if(xHigherPriorityTaskWoken) {
+//        portYIELD_FROM_ISR();
+//    }
+//#ifndef QS_ON
+//    if (Serial.available() &gt; 0) {
+//        switch (Serial.read()) { // read the incoming byte
+//            case 'p':
+//            case 'P':
+//                static QEvt const pauseEvt = { PAUSE_SIG, 0U, 0U};
+//                QF::PUBLISH(&amp;pauseEvt, &amp;l_TIMER_ID);
+//                break;
+//            case 's':
+//            case 'S':
+//                static QEvt const serveEvt = { SERVE_SIG, 0U, 0U};
+//                QF::PUBLISH(&amp;serveEvt, &amp;l_TIMER_ID);
+//                break;
+//        }
+//    }
+//#endif
+//}
 
 void BSP::init(void) {
     // initialize the hardware used in this sketch...
@@ -543,6 +546,7 @@ void BSP::init(void) {
     randomSeed(1234); // seed the Random Number Generator
     Serial.begin(115200); // set the highest stanard baud rate of 115200 bps
     QS_INIT(nullptr);
+    BSPHooks::onInit();
 #ifdef QS_ON
     // output QS dictionaries
     QS_OBJ_DICTIONARY(&amp;l_TIMER_ID);
@@ -630,17 +634,19 @@ void QSpy_Task(void *) {
 }
 
 void QF::onStartup(void) {
-    esp_register_freertos_tick_hook_for_cpu(tickHook_ESP32, QP_CPU_NUM);
-#ifdef QS_ON
-    xTaskCreatePinnedToCore(
-                    QSpy_Task,   /* Function to implement the task */
-                    &quot;QSPY&quot;, /* Name of the task */
-                    10000,      /* Stack size in words */
-                    NULL,       /* Task input parameter */
-                    configMAX_PRIORITIES-1,          /* Priority of the task */
-                    NULL,       /* Task handle. */
-                    QP_CPU_NUM);  /* Core where the task should run */
-#endif
+//    esp_register_freertos_tick_hook_for_cpu(tickHook_ESP32, QP_CPU_NUM);
+    BSPHooks::onStartup();
+//    QS_OBJ_DICTIONARY(&amp;l_TickHook);
+//#ifdef QS_ON
+//    xTaskCreatePinnedToCore(
+//                    QSpy_Task,   /* Function to implement the task */
+//                    &quot;QSPY&quot;, /* Name of the task */
+//                    10000,      /* Stack size in words */
+//                    NULL,       /* Task input parameter */
+//                    configMAX_PRIORITIES-1,          /* Priority of the task */
+//                    NULL,       /* Task handle. */
+//                    QP_CPU_NUM);  /* Core where the task should run */
+//#endif
 }
 //............................................................................
 
@@ -806,6 +812,27 @@ static char const * const EATING   = &quot;eating  &quot;;
 // generate definition of the AO ---------------------------------------------
 $define${AOs::Table}
 </text>
+  </file>
+  <!--${.::bsp_hooks.hpp}-->
+  <file name="bsp_hooks.hpp">
+   <text>namespace BSPHooks {
+  void onInit();       // serial, pins, etc
+  void onStartup();    // tick init, any extra tasks
+  void onIdle();       // optional
+}
+</text>
+  </file>
+  <!--${.::bsp_hooks.cpp}-->
+  <file name="bsp_hooks.cpp">
+   <text>
+
+void BSPHooks::onStartup() {
+    
+    QP::ESP32_tickHookInit();
+#ifdef  QS_ON
+    QS_OBJ_DICTIONARY(&amp;l_TickHook);
+#endif
+}</text>
   </file>
  </directory>
 </model>
