@@ -167,6 +167,7 @@ void printQpPinning() {
 #else
   Serial.println("No CONFIG_QP_PINNED_TO_CORE_* defined (default core 1)");
 #endif
+
 }
 
 
@@ -183,9 +184,10 @@ void setup() {
 
     Serial.begin(115200);
     while (!Serial) {}
-
+#ifndef Q_SPY
     // check CPU pinning
     printQpPinning();
+#endif
 // Configure the probe pin for CPU0
   gpio_config_t io_conf0{};
   io_conf0.intr_type = GPIO_INTR_DISABLE;
@@ -224,8 +226,9 @@ void setup() {
   esp_err_t e0 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core0, 0);
   esp_err_t e1 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core1, 1);
 
+#ifndef Q_SPY
 Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
-
+#endif
 
     QF::init(); // initialize the framework -- DPP code
     BSP::init(); // initialize the Board Support Package -- DPP code
@@ -283,7 +286,7 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     // This task will periodically print the status of FreeRTOS tasks
     // to the Serial port
 
-    
+#ifndef Q_SPY    
   constexpr BaseType_t CORE0 = 0;
   xTaskCreatePinnedToCore(
       rtosDumpTask,
@@ -294,7 +297,7 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
       nullptr,
       CORE0
   );    
-  
+#endif
 
     // Start the Telnet server task 
 
@@ -304,9 +307,11 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
 
 
     QF::run();
+#ifndef Q_SPY 
     Serial.printf("AFTER QF::run() core=%d\n", xPortGetCoreID()); // should never print
 								  // but it actually does!!
 								  // QF::run() actually return
+#endif
 
     // In the vChavezB/qpcpp_esp32 port, QF::run():
     // -  creates a FreeRTOS task for each AO

@@ -38,9 +38,7 @@ using namespace QP;
 
 //............................................................................
 // QS facilities
-
-// un-comment if QS instrumentation needed
-// #define QS_ON
+// note that Q_SPY is defined in platformio.ini
 
 enum AppRecords {  // application-specific QS trace records
     PHILO_STAT = QP::QS_USER,
@@ -58,7 +56,7 @@ void BSP::init(void) {
     randomSeed(1234);      // seed the Random Number Generator
     Serial.begin(115200);  // set the highest stanard baud rate of 115200 bps
     QS_INIT(nullptr);
-#ifdef QS_ON
+#ifdef Q_SPY
     // output QS dictionaries
     QS_OBJ_DICTIONARY(&l_TIMER_ID);
     QS_USR_DICTIONARY(PHILO_STAT);
@@ -75,7 +73,7 @@ void BSP::init(void) {
 }
 //............................................................................
 void BSP::displayPhilStat(uint8_t n, char_t const* stat) {
-#ifdef QS_ON
+#ifdef Q_SPY
     QS_BEGIN_ID(PHILO_STAT, AO_Philo[n]->m_prio)  // app-specific record begin
     QS_U8(1, n);                                  // Philo number
     QS_STR(stat);                                 // Philo status
@@ -90,7 +88,7 @@ void BSP::displayPhilStat(uint8_t n, char_t const* stat) {
 //............................................................................
 void BSP::displayPaused(uint8_t paused) {
     char const* msg = paused ? "Paused ON" : "Paused OFF";
-#ifndef QS_ON
+#ifndef Q_SPY
     Serial.println(msg);
 #endif
 }
@@ -113,29 +111,7 @@ uint32_t BSP::random(void) {  // a very cheap pseudo-random-number generator
     return (rnd >> 8);
 }
 
-//............................................................................
-void QSpy_Task(void*) {
-    while (1) {
-        // transmit QS outgoing data (QS-TX)
-        uint16_t len = Serial.availableForWrite();
-        if (len > 0U) {  // any space available in the output buffer?
-            uint8_t const* buf = QS::getBlock(&len);
-            if (buf) {
-                Serial.write(buf, len);  // asynchronous and non-blocking
-            }
-        }
 
-        // receive QS incoming data (QS-RX)
-        len = Serial.available();
-        if (len > 0U) {
-            do {
-                QP::QS::rxPut(Serial.read());
-            } while (--len > 0U);
-            QS::rxParse();
-        }
-        delay(100);
-    };
-}
 
  void QF::onStartup(void) {
     BSPHooks::onStartup();
@@ -176,7 +152,7 @@ void QP::QS::onCommand(uint8_t cmdId, uint32_t param1, uint32_t param2,
 void QP::QS::onCleanup(void) {}
 //............................................................................
 QP::QSTimeCtr QP::QS::onGetTime(void) {
-#ifdef QS_ON
+#ifdef Q_SPY
     return millis();
 #else
     return 0;
@@ -184,7 +160,7 @@ QP::QSTimeCtr QP::QS::onGetTime(void) {
 }
 //............................................................................
 void QP::QS::onFlush(void) {
-#ifdef QS_ON
+#ifdef Q_SPY
     uint16_t len = 0xFFFFU;  // big number to get as many bytes as available
     uint8_t const* buf = QS::getBlock(&len);  // get continguous block of data
     while (buf != nullptr) {                  // data available?
@@ -193,7 +169,7 @@ void QP::QS::onFlush(void) {
         buf = QS::getBlock(&len);  // try to get more data
     }
     Serial.flush();  // wait for the transmission of outgoing data to complete
-#endif               // QS_ON
+#endif               // Q_SPY
 }
 //............................................................................
 void QP::QS::onReset(void) { esp_restart(); }

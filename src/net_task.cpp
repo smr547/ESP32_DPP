@@ -58,7 +58,9 @@ static void NetTask(void *pv) {
   while (WiFi.status() != WL_CONNECTED) {
     vTaskDelay(pdMS_TO_TICKS(250));
   }
-  printWifiInfoOnce();
+  #ifndef Q_SPY 
+    printWifiInfoOnce();
+  #endif
   startMdnsOnce(s_port);
 
   // ---- Telnet server ----
