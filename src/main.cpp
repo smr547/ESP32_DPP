@@ -23,6 +23,7 @@
 #include "bsp.hpp"    // Board Support Package
 #include "net_task.hpp"
 #include "HealthAO.hpp"
+#include "sensesp_task.hpp"
 
 extern "C" {
   #include "driver/gpio.h"
@@ -53,6 +54,7 @@ static const char* taskStateToStr(eTaskState s) {
   }
 }
 
+#ifndef Q_SPY
 // print the status of each FreeRTOS task
 void printRtosTasks() {
   UBaseType_t n = uxTaskGetNumberOfTasks();
@@ -76,6 +78,7 @@ void printRtosTasks() {
     return;
   }
 
+
   Serial.println();
   Serial.println("Name                         Prio State StackHW Core   Runtime%");
   Serial.println("------------------------------------------------------------------");
@@ -89,7 +92,7 @@ void printRtosTasks() {
     // ESP32 FreeRTOS adds xCoreID to TaskStatus_t
     int core = -1;
     #if defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_ESP32)
-      core = (int)st[i].xCoreID; // 0, 1, or tskNO_AFFINITY
+    //  core = (int)st[i].xCoreID; // 0, 1, or tskNO_AFFINITY
     #endif
 
     float pct = 0.0f;
@@ -125,7 +128,7 @@ static void rtosDumpTask(void *arg) {
     vTaskDelay(pdMS_TO_TICKS(5000)); // periodic dump
   }
 }
-
+#endif
 
 static constexpr gpio_num_t PROBE_GPIO_0 = GPIO_NUM_25; // pick a safe pin for your board
 static constexpr gpio_num_t PROBE_GPIO_1 = GPIO_NUM_33;
@@ -250,7 +253,10 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     static HealthAO l_health;
     l_health.setAttr(TASK_NAME_ATTR, "AO_Health");
     static QP::QEvt const *healthQueueSto[10];
+
+#ifndef Q_SPY    
     Serial.printf("AO_Health object @ %p\n", (void*)&l_health);
+#endif
     l_health.start(/*prio*/ (uint_fast8_t)(N_PHILO + 2U),
                healthQueueSto, Q_DIM(healthQueueSto),
                (void*)0, stack_size);
@@ -280,8 +286,9 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     AO_Table->start((uint_fast8_t)(N_PHILO + 1U), // priority
         tableQueueSto, Q_DIM(tableQueueSto),
         (void *)0, stack_size);
+#ifndef Q_SPY
     Serial.printf("Before QF::run() core=%d\n", xPortGetCoreID());
-
+#endif
     // Start RTOS dump task pinned to core 0 (PRO CPU)
     // This task will periodically print the status of FreeRTOS tasks
     // to the Serial port
@@ -302,8 +309,11 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     // Start the Telnet server task 
 
     // Serial.println("Initiating the web server task");
-    netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
+    // netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
     //netTask_start("StevenR", "ILoveIrene", 23); // <-- start core-0 server
+
+    // start SensESP
+    startSensESPOnCore0();
 
 
     QF::run();
