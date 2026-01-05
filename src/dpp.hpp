@@ -18,6 +18,7 @@
 //.$endhead${.::dpp.hpp} ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 #ifndef DPP_HPP
 #define DPP_HPP
+#include "qpcpp.hpp"
 
 enum Signals {
     EAT_SIG = QP::Q_USER_SIG,  // published by Table to let a Philosopher eat
