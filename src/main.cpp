@@ -24,6 +24,7 @@
 #include "net_task.hpp"
 #include "HealthAO.hpp"
 #include "sensesp_task.hpp"
+#include "qp_sensesp_bridge.hpp"
 
 extern "C" {
   #include "driver/gpio.h"
@@ -311,6 +312,11 @@ Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
     // Serial.println("Initiating the web server task");
     // netTask_start("Bertie", "Ookie1234", 23); // <-- start core-0 server
     //netTask_start("StevenR", "ILoveIrene", 23); // <-- start core-0 server
+
+    // setup the bridge
+    qp_sensesp_bridge_init();
+
+
 
     // start SensESP
     startSensESPOnCore0();

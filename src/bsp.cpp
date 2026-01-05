@@ -29,6 +29,8 @@ extern "C" {
 #include "esp_freertos_hooks.h"
 #include "qpcpp.hpp"  // QP-C++ framework
 #include "bsp_hooks.hpp"
+#include "qp_sensesp_bridge.hpp"
+
 
 #ifndef LED_BUILTIN  // If current ESP32 board does not define LED_BUILTIN
 static constexpr unsigned LED_BUILTIN = 13U;
@@ -73,6 +75,7 @@ void BSP::init(void) {
 }
 //............................................................................
 void BSP::displayPhilStat(uint8_t n, char_t const* stat) {
+    qp_sensesp_push_philo(n, stat);
 #ifdef Q_SPY
     QS_BEGIN_ID(PHILO_STAT, AO_Philo[n]->m_prio)  // app-specific record begin
     QS_U8(1, n);                                  // Philo number
