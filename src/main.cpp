@@ -25,6 +25,7 @@
 #include "HealthAO.hpp"
 #include "sensesp_task.hpp"
 #include "qp_sensesp_bridge.hpp"
+// #include "instrumentation/probe_pins.hpp"
 
 extern "C" {
   #include "driver/gpio.h"
@@ -131,36 +132,23 @@ static void rtosDumpTask(void *arg) {
 }
 #endif
 
-static constexpr gpio_num_t PROBE_GPIO_0 = GPIO_NUM_25; // pick a safe pin for your board
-static constexpr gpio_num_t PROBE_GPIO_1 = GPIO_NUM_33;
+//static constexpr gpio_num_t PROBE_GPIO_0 = GPIO_NUM_25; // pick a safe pin for your board
+//static constexpr gpio_num_t PROBE_GPIO_1 = GPIO_NUM_33;
 
-static constexpr gpio_num_t PROBE_GPIO_QF = GPIO_NUM_32;
-
+//static constexpr gpio_num_t PROBE_GPIO_QF = GPIO_NUM_32;
+/*
 // toggle the probe pin for core 0
 static bool IRAM_ATTR idle_hook_core0() {
-  static int level_0 = 0;
-  static int n0 = 0;
-  if (++n0 >= 10) {
-    n0 = 0;
-    level_0 ^= 1;
-    gpio_set_level(PROBE_GPIO_0, level_0);
-  }
+  probe::core0_idle_toggle();
   return true;
 }
 
 // toggle the probe pin for core 0
 static bool IRAM_ATTR idle_hook_core1() {
-  static int level_1 = 0;
-  static int n1 = 0;
-  if (++n1 >= 10) {
-    n1 = 0;
-    level_1 ^= 1;
-    gpio_set_level(PROBE_GPIO_1, level_1);
-  }
-  
+  probe::core1_idle_toggle();
   return true;
 }
-
+*/
 // report on how the QP framework has been configured to run on one CPU
 // or on both
 void printQpPinning() {
@@ -186,12 +174,16 @@ Q_DEFINE_THIS_FILE
 //............................................................................
 void setup() {
 
+  // probe::init();
+
     Serial.begin(115200);
     while (!Serial) {}
 #ifndef Q_SPY
     // check CPU pinning
     printQpPinning();
 #endif
+
+/*
 // Configure the probe pin for CPU0
   gpio_config_t io_conf0{};
   io_conf0.intr_type = GPIO_INTR_DISABLE;
@@ -229,7 +221,7 @@ void setup() {
   //
   esp_err_t e0 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core0, 0);
   esp_err_t e1 = esp_register_freertos_idle_hook_for_cpu(idle_hook_core1, 1);
-
+*/
 #ifndef Q_SPY
 Serial.printf("idle hook reg: core0=%d core1=%d\n", (int)e0, (int)e1);
 #endif

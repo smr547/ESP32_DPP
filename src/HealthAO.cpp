@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#include "instrumentation/probe_pins.hpp"
+
 extern "C" {
 #include "driver/gpio.h"
 #include "esp_task_wdt.h"
@@ -66,9 +68,8 @@ QP::QState HealthAO::active(HealthAO* const me, QP::QEvt const* const e) {
         }
 
         case HEALTH_TICK_SIG: {
-            gpio_set_level(WDT_PULSE_GPIO, 1);
-            esp_err_t r = esp_task_wdt_reset();
-            gpio_set_level(WDT_PULSE_GPIO, 0);  // reset CURRENT task
+            probe::wd_feed_pulse();
+            esp_err_t r = esp_task_wdt_reset();  // reset CURRENT task
             if (r != ESP_OK) {
                 TaskHandle_t cur = xTaskGetCurrentTaskHandle();
                 Serial.printf("WDT reset failed: %d (task=%p %s core=%d)\n",
